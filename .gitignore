@@ -1,4 +1,4 @@
-scanner
-scanner.exe
+/scanner
+/scanner.exe
 *.exe
 /dist/
