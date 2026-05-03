@@ -1,0 +1,4 @@
+scanner
+scanner.exe
+*.exe
+/dist/
