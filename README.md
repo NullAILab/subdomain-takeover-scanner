@@ -1,103 +1,97 @@
-# 44 — Subdomain Takeover Scanner
+# Subdomain Takeover Scanner
 
-> **Difficulty:** Intermediate | **Time:** 2–4 days | **Language:** Go
+![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Fingerprints](https://img.shields.io/badge/Fingerprints-25%20services-blue)
 
-A scanner that discovers dangling DNS records pointing to unclaimed cloud resources, enabling subdomain takeover vulnerabilities — and helps you fix them before attackers find them.
-
----
-
-## What You'll Build
-
-A Go tool that:
-- Discovers all subdomains via DNS enumeration (wordlist + certificate transparency)
-- Checks each subdomain's CNAME chain for unclaimed endpoints
-- Tests 50+ cloud services for takeover signatures (GitHub Pages, S3, Heroku, Netlify, etc.)
-- Verifies potential takeovers by checking if the resource can be claimed
-- Generates a risk-prioritized report
-- Monitors continuously for new vulnerable records
-
----
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Language | Go 1.21+ |
-| DNS | `miekg/dns` |
-| HTTP | `net/http` |
-| Fingerprints | YAML config (50+ services) |
-| CT logs | `crtsh` API |
+Detect dangling DNS CNAME records pointing to unclaimed cloud resources. Supports wordlist enumeration, certificate transparency log discovery, and concurrent scanning against 25 known service fingerprints.
 
 ---
 
 ## How Subdomain Takeover Works
 
 ```
-company.com has DNS:
-  blog.company.com CNAME → company.github.io
-
-Problem: company.github.io Pages site was deleted.
-Attack:  Create GitHub Pages at company.github.io
-Result:  Attacker controls blog.company.com!
+blog.company.com  CNAME →  company.github.io
 ```
 
-The DNS still points there, but the resource was never reclaimed. Attackers can register the same username/bucket/hostname and serve malicious content under your domain.
+The GitHub Pages site was deleted but the DNS record remains. An attacker creates a GitHub Pages repo at `company.github.io` and now controls `blog.company.com`.
 
 ---
 
 ## Service Fingerprints
 
-| Service | Takeover Indicator | Risk |
-|---------|--------------------|------|
-| GitHub Pages | "There isn't a GitHub Pages site here" | HIGH |
-| Heroku | "No such app" | HIGH |
-| AWS S3 | "NoSuchBucket" | HIGH |
-| Netlify | "Not Found — Request ID" | MEDIUM |
-| Shopify | "Sorry, this shop is currently unavailable" | HIGH |
-| Fastly | "Fastly error: unknown domain" | HIGH |
+| Service | Detection |
+|---------|-----------|
+| GitHub Pages | "There isn't a GitHub Pages site here" |
+| AWS S3 | "NoSuchBucket" |
+| Heroku | "No such app" |
+| Netlify | "Not Found - Request ID" |
+| Shopify | "Sorry, this shop is currently unavailable" |
+| Fastly | "Fastly error: unknown domain" |
+| Azure | "404 Web Site not found" |
+| Vercel | "The deployment could not be found" |
+| Surge.sh | "project not found" |
+| Bitbucket | "Repository not found" |
+| + 15 more | Zendesk, WordPress, Ghost, Render, Fly.io… |
 
 ---
 
 ## Usage
 
 ```bash
-# Enumerate subdomains + check for takeover
-./takeover-scanner scan --domain company.com \
-  --wordlist subdomains-10k.txt
+go build -trimpath -o scanner ./cmd/scanner
 
-# Check specific subdomain
-./takeover-scanner check blog.company.com
+# Scan via wordlist
+./scanner --domain example.com --wordlist wordlists/subdomains.txt
 
-# Use certificate transparency logs
-./takeover-scanner scan --domain company.com --crt-sh
+# Discover via certificate transparency logs
+./scanner --domain example.com --crtsh
 
-# Continuous monitoring
-./takeover-scanner monitor --domain company.com \
-  --interval 6h --webhook https://hooks.slack.com/...
+# Both sources combined
+./scanner --domain example.com --wordlist subdomains.txt --crtsh
 
-# Generate report
-./takeover-scanner scan --domain company.com --output report.html
+# Check specific subdomains
+./scanner --domain example.com --subdomains "blog,mail,api,staging"
+
+# JSON output
+./scanner --domain example.com --crtsh --output json
+
+# Custom DNS server + concurrency
+./scanner --domain example.com --crtsh --dns 8.8.8.8:53 --concurrency 50
 ```
 
 ---
 
-## Learning Objectives
+## Project Structure
 
-- [ ] How CNAME chains work in DNS
-- [ ] Why unclaimed cloud resources create security vulnerabilities
-- [ ] Certificate Transparency logs for subdomain discovery
-- [ ] Bug bounty methodology for subdomain takeover
-- [ ] How to remediate dangling DNS records
-- [ ] Continuous monitoring for DNS changes
+```
+cmd/scanner/         ← CLI entry point
+internal/
+├── dns/             ← CNAME chain resolution
+├── crtsh/           ← Certificate transparency log client
+├── fingerprint/     ← 25 service fingerprints
+├── scanner/         ← Concurrent scan orchestrator
+└── report/          ← Console + JSON output
+```
+
+---
+
+## Tests
+
+```bash
+go test ./...
+```
 
 ---
 
 ## References
 
-- [Can I take over XYZ? — Takeover fingerprints](https://github.com/EdOverflow/can-i-take-over-xyz)
-- [Subdomain Takeover Guide](https://0xpatrik.com/subdomain-takeover-basics/)
+- [Can I Take Over XYZ?](https://github.com/EdOverflow/can-i-take-over-xyz)
 - [crt.sh — Certificate Transparency](https://crt.sh/)
+- [0xpatrik — Subdomain Takeover Basics](https://0xpatrik.com/subdomain-takeover-basics/)
 
 ---
 
-*NullAI Lab — Project 44 | Subdomain Takeover Scanner*
+## License
+
+MIT
